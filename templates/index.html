@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SkyWatch — Situational Awareness</title>
+    <script src="/static/htmx.min.js"></script>
+    <link rel="stylesheet" href="/static/leaflet.css">
+    <script src="/static/leaflet.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <h1 class="logo">⚡ SkyWatch</h1>
+            <span class="subtitle">Nationwide Situational Awareness</span>
+        </div>
+        <div class="top-bar-right">
+            <span class="status-indicator" id="connection-status">● LIVE</span>
+            <span class="last-updated" id="last-updated"></span>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Stats Panel (top strip) -->
+        <section class="panel panel-stats"
+                 hx-get="/api/stats"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+            <div class="loading">Loading stats...</div>
+        </section>
+
+        <!-- Map Panel (left, large) -->
+        <section class="panel panel-map">
+            <div id="map"></div>
+        </section>
+
+        <!-- Event Feed (right column) -->
+        <section class="panel panel-feed">
+            <div class="panel-header">
+                <h2>Event Feed</h2>
+                <div class="feed-filters">
+                    <select id="filter-source" hx-get="/api/events" hx-include="#filter-severity"
+                            hx-target="#event-list" hx-trigger="change" name="source">
+                        <option value="">All Sources</option>
+                        <option value="nws">NWS</option>
+                        <option value="usgs">USGS</option>
+                    </select>
+                    <select id="filter-severity" hx-get="/api/events" hx-include="#filter-source"
+                            hx-target="#event-list" hx-trigger="change" name="severity">
+                        <option value="">All Severity</option>
+                        <option value="extreme">Extreme</option>
+                        <option value="severe">Severe</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="minor">Minor</option>
+                    </select>
+                </div>
+            </div>
+            <div id="event-list"
+                 hx-get="/api/events"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="loading">Loading events...</div>
+            </div>
+        </section>
+
+        <!-- Feed Health (bottom strip) -->
+        <section class="panel panel-health">
+            <div class="panel-header"><h2>Feed Status</h2></div>
+            <div id="feed-health"
+                 hx-get="/api/health"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="loading">Checking feeds...</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Initialize Leaflet map centered on CONUS
+        const map = L.map('map', {
+            center: [39.8, -98.5],
+            zoom: 4,
+            zoomControl: true,
+        });
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Marker layer group for easy clearing
+        let markerLayer = L.layerGroup().addTo(map);
+
+        // Refresh map markers
+        async function refreshMap() {
+            try {
+                const resp = await fetch('/api/map');
+                const events = await resp.json();
+
+                markerLayer.clearLayers();
+
+                events.forEach(e => {
+                    const marker = L.circleMarker([e.lat, e.lng], {
+                        radius: e.severity === 'extreme' ? 8 : e.severity === 'severe' ? 6 : 4,
+                        fillColor: e.color,
+                        color: '#1a1a2e',
+                        weight: 1,
+                        opacity: 0.9,
+                        fillOpacity: 0.7,
+                    });
+
+                    marker.bindPopup(`
+                        <strong>${e.title}</strong><br>
+                        <em>${e.source.toUpperCase()}</em> · ${e.severity.toUpperCase()}<br>
+                        ${e.area || ''}${e.onset ? '<br>Onset: ' + e.onset : ''}
+                    `);
+
+                    markerLayer.addLayer(marker);
+                });
+
+                document.getElementById('last-updated').textContent =
+                    'Map: ' + new Date().toLocaleTimeString();
+            } catch (err) {
+                console.error('Map refresh error:', err);
+            }
+        }
+
+        // Initial load + auto-refresh
+        refreshMap();
+        setInterval(refreshMap, 30000);
+    </script>
+</body>
+</html>

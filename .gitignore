@@ -1,0 +1,10 @@
+/target/
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Static assets (downloaded, not committed)
+static/htmx.min.js
+static/leaflet.js
+static/leaflet.css

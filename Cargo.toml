@@ -1,0 +1,45 @@
+[package]
+name = "skywatch"
+version = "0.1.0"
+edition = "2021"
+description = "Nationwide real-time situational awareness dashboard"
+
+[dependencies]
+# Web service stack
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["fs", "cors"] }
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Templates
+askama = "0.12"
+askama_axum = "0.4"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client for pollers
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Unique IDs
+ulid = "1"
+
+# Async trait for poller interface
+async-trait = "0.1"
