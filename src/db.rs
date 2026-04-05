@@ -337,12 +337,12 @@ pub fn upsert_mesh_node(conn: &Connection, node: &MeshNode) -> Result<(), AppErr
     Ok(())
 }
 
-/// Get mesh nodes with coordinates for map rendering
+/// Get mesh nodes with full data for map rendering
 pub fn get_mesh_nodes(conn: &Connection) -> Result<Vec<serde_json::Value>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT node_id, node_id_hex, long_name, short_name, hardware_model, role,
                 latitude, longitude, altitude, battery_level, uptime_seconds,
-                is_online, last_heard_at, metadata
+                is_online, last_heard_at, metadata, firmware_version
          FROM mesh_nodes
          WHERE latitude IS NOT NULL AND longitude IS NOT NULL
          ORDER BY is_online DESC, last_heard_at DESC",
@@ -352,7 +352,7 @@ pub fn get_mesh_nodes(conn: &Connection) -> Result<Vec<serde_json::Value>, AppEr
         .query_map([], |row| {
             let is_online: i32 = row.get(11)?;
             let metadata_str: String = row.get(13)?;
-            let metadata: serde_json::Value =
+            let m: serde_json::Value =
                 serde_json::from_str(&metadata_str).unwrap_or_default();
             Ok(serde_json::json!({
                 "node_id": row.get::<_, String>(0)?,
@@ -368,8 +368,23 @@ pub fn get_mesh_nodes(conn: &Connection) -> Result<Vec<serde_json::Value>, AppEr
                 "uptime": row.get::<_, Option<i64>>(10)?,
                 "online": is_online == 1,
                 "last_heard": row.get::<_, Option<String>>(12)?,
-                "region": metadata.get("region").and_then(|v| v.as_str()),
-                "modem_preset": metadata.get("modem_preset").and_then(|v| v.as_str()),
+                "firmware": row.get::<_, Option<String>>(14)?,
+                "region": m.get("region").and_then(|v| v.as_str()),
+                "modem_preset": m.get("modem_preset").and_then(|v| v.as_str()),
+                "channel_utilization": m.get("channel_utilization").and_then(|v| v.as_str()),
+                "air_util_tx": m.get("air_util_tx").and_then(|v| v.as_str()),
+                "temperature": m.get("temperature").and_then(|v| v.as_str()),
+                "relative_humidity": m.get("relative_humidity").and_then(|v| v.as_str()),
+                "barometric_pressure": m.get("barometric_pressure").and_then(|v| v.as_str()),
+                "voltage": m.get("voltage").and_then(|v| v.as_str()),
+                "is_licensed": m.get("is_licensed").and_then(|v| v.as_bool()),
+                "has_default_channel": m.get("has_default_channel").and_then(|v| v.as_bool()),
+                "position_precision": m.get("position_precision").and_then(|v| v.as_i64()),
+                "num_online_local_nodes": m.get("num_online_local_nodes").and_then(|v| v.as_i64()),
+                "neighbours": m.get("neighbours"),
+                "neighbours_updated_at": m.get("neighbours_updated_at").and_then(|v| v.as_str()),
+                "position_updated_at": m.get("position_updated_at").and_then(|v| v.as_str()),
+                "created_at": m.get("created_at").and_then(|v| v.as_str()),
             }))
         })?
         .collect::<Result<Vec<_>, _>>()?;

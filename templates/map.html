@@ -10,12 +10,15 @@
         :root {
             --bg: #0f0f1a;
             --bg-card: #16213e;
+            --bg-card-hover: #1c2a4a;
             --border: #2a2a4a;
             --text: #e0e0e0;
+            --text-sec: #8892a4;
             --text-muted: #5a6378;
             --green: #22c55e;
             --amber: #eab308;
             --red: #dc2626;
+            --blue: #60a5fa;
             --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
             --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
@@ -29,7 +32,6 @@
             flex-direction: column;
         }
 
-        /* Top bar */
         .map-bar {
             display: flex;
             justify-content: space-between;
@@ -41,104 +43,91 @@
             flex-shrink: 0;
             z-index: 1000;
         }
-        .map-bar-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
+        .map-bar-left { display: flex; align-items: center; gap: 1rem; }
+        .map-bar-left > a {
+            color: var(--text); text-decoration: none;
+            font-size: 0.85rem; font-weight: 600;
         }
-        .map-bar-left a {
-            color: var(--text);
-            text-decoration: none;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .map-bar-left a:hover { color: var(--green); }
-        .map-bar-nav {
-            display: flex;
-            gap: 0.25rem;
-        }
+        .map-bar-left > a:hover { color: var(--green); }
+        .map-bar-nav { display: flex; gap: 0.25rem; }
         .map-bar-nav a {
-            padding: 0.3rem 0.7rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            border-radius: 4px;
-            transition: color 0.15s, background 0.15s;
+            padding: 0.3rem 0.7rem; font-size: 0.75rem;
+            color: var(--text-muted); text-decoration: none;
+            border-radius: 4px; transition: color 0.15s, background 0.15s;
         }
-        .map-bar-nav a:hover {
-            color: var(--text);
-            background: rgba(255,255,255,0.05);
-        }
-        .map-bar-nav a.active {
-            color: var(--green);
-            background: rgba(34,197,94,0.1);
-        }
+        .map-bar-nav a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .map-bar-nav a.active { color: var(--green); background: rgba(34,197,94,0.1); }
         .map-bar-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-family: var(--font-mono);
-            font-size: 0.7rem;
-            color: var(--text-muted);
+            display: flex; align-items: center; gap: 1rem;
+            font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);
         }
-        .live-stat {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
+        .live-stat { display: flex; align-items: center; gap: 0.3rem; }
         .live-stat .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            display: inline-block;
+            width: 6px; height: 6px; border-radius: 50%; display: inline-block;
         }
         .dot-green { background: var(--green); }
         .dot-amber { background: var(--amber); }
-        .dot-red { background: var(--red); }
 
-        /* Map fills remaining space */
-        #fullmap {
-            flex: 1;
-            background: var(--bg);
-        }
+        #fullmap { flex: 1; background: var(--bg); }
 
         /* Dark tiles */
         .leaflet-tile-pane { filter: brightness(0.7) contrast(1.1) saturate(0.3); }
+
+        /* Popups */
         .leaflet-popup-content-wrapper {
-            background: var(--bg-card);
-            color: var(--text);
-            border-radius: 6px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            background: var(--bg-card); color: var(--text);
+            border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+            max-width: 320px;
         }
         .leaflet-popup-content {
-            font-size: 0.8rem;
-            line-height: 1.4;
-            font-family: var(--font-sans);
-        }
-        .leaflet-popup-content code {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            background: rgba(255,255,255,0.05);
-            padding: 0.1em 0.3em;
-            border-radius: 3px;
+            font-size: 0.78rem; line-height: 1.5;
+            font-family: var(--font-sans); margin: 10px 12px;
         }
         .leaflet-popup-tip { background: var(--bg-card); }
+
+        /* Popup internals */
+        .np-header { margin-bottom: 6px; }
+        .np-name { font-size: 0.9rem; font-weight: 600; }
+        .np-id { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
+        .np-status {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .np-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 2px 12px; margin: 6px 0;
+            font-size: 0.72rem;
+        }
+        .np-grid dt { color: var(--text-muted); }
+        .np-grid dd { color: var(--text); font-family: var(--font-mono); font-size: 0.7rem; }
+        .np-section {
+            margin-top: 6px; padding-top: 5px;
+            border-top: 1px solid var(--border);
+            font-size: 0.7rem;
+        }
+        .np-section-title {
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-muted); margin-bottom: 3px;
+        }
+        .np-neighbour {
+            display: flex; justify-content: space-between;
+            padding: 1px 0; font-family: var(--font-mono); font-size: 0.68rem;
+        }
+        .np-neighbour-snr { color: var(--green); }
+        .np-env { color: var(--text-sec); }
+
+        /* Controls */
         .leaflet-control-layers {
-            background: var(--bg-card);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            background: var(--bg-card); color: var(--text);
+            border: 1px solid var(--border); border-radius: 6px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .leaflet-control-layers label { color: var(--text); }
         .leaflet-control-zoom a {
-            background: var(--bg-card);
-            color: var(--text);
-            border-color: var(--border);
+            background: var(--bg-card); color: var(--text); border-color: var(--border);
         }
-        .leaflet-control-zoom a:hover {
-            background: rgba(255,255,255,0.1);
-        }
+        .leaflet-control-zoom a:hover { background: rgba(255,255,255,0.1); }
 
         @media (max-width: 600px) {
             .map-bar-right .live-stat-label { display: none; }
@@ -172,6 +161,7 @@
     <div id="fullmap"></div>
 
     <script>
+    (function() {
         var map = L.map('fullmap', {
             center: [27.8, -82.5],
             zoom: 7,
@@ -184,23 +174,18 @@
         }).addTo(map);
 
         var meshLayer = L.layerGroup().addTo(map);
+        var pathLayer = L.layerGroup().addTo(map);
         var alertLayer = L.layerGroup().addTo(map);
         var quakeLayer = L.layerGroup().addTo(map);
 
         L.control.layers(null, {
             'Mesh Nodes': meshLayer,
+            'Neighbour Links': pathLayer,
             'NWS Alerts': alertLayer,
             'Earthquakes': quakeLayer,
         }, { collapsed: false }).addTo(map);
 
-        function formatUptime(secs) {
-            if (!secs) return 'unknown';
-            var d = Math.floor(secs / 86400);
-            var h = Math.floor((secs % 86400) / 3600);
-            if (d > 0) return d + 'd ' + h + 'h';
-            var m = Math.floor((secs % 3600) / 60);
-            return h + 'h ' + m + 'm';
-        }
+        // ── Helpers ──
 
         function esc(s) {
             if (!s) return '';
@@ -209,13 +194,120 @@
             return d.innerHTML;
         }
 
+        function formatUptime(secs) {
+            if (!secs) return null;
+            var d = Math.floor(secs / 86400);
+            var h = Math.floor((secs % 86400) / 3600);
+            if (d > 0) return d + 'd ' + h + 'h';
+            var m = Math.floor((secs % 3600) / 60);
+            return h + 'h ' + m + 'm';
+        }
+
+        function timeAgo(iso) {
+            if (!iso) return null;
+            var ms = Date.now() - new Date(iso).getTime();
+            if (ms < 60000) return '<1m ago';
+            if (ms < 3600000) return Math.floor(ms / 60000) + 'm ago';
+            if (ms < 86400000) return Math.floor(ms / 3600000) + 'h ago';
+            return Math.floor(ms / 86400000) + 'd ago';
+        }
+
+        function batteryStr(val) {
+            if (val === null || val === undefined) return null;
+            if (val > 100) return 'Plugged in';
+            return val + '%';
+        }
+
+        // ── Build node popup ──
+
+        function nodePopup(n) {
+            var color = n.online ? '#22c55e' : '#6b7280';
+            var statusLabel = n.online ? 'ONLINE' : 'OFFLINE';
+
+            var html = '<div class="np-header">';
+            html += '<div class="np-name">' + esc(n.long_name);
+            if (n.short_name) html += ' <span class="np-id">' + esc(n.short_name) + '</span>';
+            html += '</div>';
+            html += '<div class="np-status"><span style="color:' + color + '">&bull;</span> ' + statusLabel;
+            if (n.last_heard) html += ' &middot; ' + timeAgo(n.last_heard);
+            html += '</div>';
+            if (n.node_id_hex) html += '<div class="np-id">' + esc(n.node_id_hex) + '</div>';
+            html += '</div>';
+
+            // Main info grid
+            html += '<dl class="np-grid">';
+            if (n.hardware) { html += '<dt>Hardware</dt><dd>' + esc(n.hardware) + '</dd>'; }
+            if (n.role) { html += '<dt>Role</dt><dd>' + esc(n.role) + '</dd>'; }
+            if (n.firmware) { html += '<dt>Firmware</dt><dd>' + esc(n.firmware) + '</dd>'; }
+            if (n.region) { html += '<dt>Region</dt><dd>' + esc(n.region) + '</dd>'; }
+            if (n.modem_preset) { html += '<dt>Preset</dt><dd>' + esc(n.modem_preset) + '</dd>'; }
+            var batt = batteryStr(n.battery);
+            if (batt) { html += '<dt>Battery</dt><dd>' + batt + '</dd>'; }
+            if (n.voltage) { html += '<dt>Voltage</dt><dd>' + esc(n.voltage) + 'V</dd>'; }
+            var up = formatUptime(n.uptime);
+            if (up) { html += '<dt>Uptime</dt><dd>' + up + '</dd>'; }
+            if (n.altitude !== null && n.altitude !== undefined) {
+                html += '<dt>Altitude</dt><dd>' + Math.round(n.altitude) + 'm</dd>';
+            }
+            if (n.channel_utilization) {
+                html += '<dt>Ch Util</dt><dd>' + parseFloat(n.channel_utilization).toFixed(1) + '%</dd>';
+            }
+            if (n.air_util_tx) {
+                html += '<dt>Air TX</dt><dd>' + parseFloat(n.air_util_tx).toFixed(1) + '%</dd>';
+            }
+            if (n.num_online_local_nodes) {
+                html += '<dt>Local Nodes</dt><dd>' + n.num_online_local_nodes + '</dd>';
+            }
+            if (n.is_licensed) { html += '<dt>Licensed</dt><dd>Yes</dd>'; }
+            html += '</dl>';
+
+            // Environment sensors
+            if (n.temperature || n.relative_humidity || n.barometric_pressure) {
+                html += '<div class="np-section"><div class="np-section-title">Environment</div>';
+                var env = [];
+                if (n.temperature) env.push(parseFloat(n.temperature).toFixed(1) + '°C');
+                if (n.relative_humidity) env.push(parseFloat(n.relative_humidity).toFixed(0) + '% RH');
+                if (n.barometric_pressure) env.push(parseFloat(n.barometric_pressure).toFixed(1) + ' hPa');
+                html += '<span class="np-env">' + env.join(' &middot; ') + '</span>';
+                html += '</div>';
+            }
+
+            // Neighbours
+            if (n.neighbours && n.neighbours.length > 0) {
+                html += '<div class="np-section"><div class="np-section-title">Neighbours (' + n.neighbours.length + ')</div>';
+                n.neighbours.forEach(function(nb) {
+                    var snr = nb.snr !== null && nb.snr !== undefined ? nb.snr.toFixed(1) + ' dB' : '—';
+                    html += '<div class="np-neighbour">';
+                    html += '<span>' + esc(nb.node_id || '?') + '</span>';
+                    html += '<span class="np-neighbour-snr">' + snr + '</span>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            return html;
+        }
+
+        // ── Refresh mesh nodes + neighbour lines ──
+
+        // Index for neighbour line drawing
+        var nodeIndex = {};
+
         async function refreshMesh() {
             try {
                 var resp = await fetch('/api/mesh-nodes');
                 var nodes = await resp.json();
                 meshLayer.clearLayers();
+                pathLayer.clearLayers();
+                nodeIndex = {};
                 var online = 0;
 
+                // First pass: index all nodes by ID for neighbour lookups
+                nodes.forEach(function(n) {
+                    nodeIndex[n.node_id] = n;
+                });
+
+                // Second pass: render markers and neighbour lines
                 nodes.forEach(function(n) {
                     if (n.online) online++;
                     var color = n.online ? '#22c55e' : '#6b7280';
@@ -230,24 +322,32 @@
                         fillOpacity: 0.8,
                     });
 
-                    var popup = '<strong>' + esc(n.long_name) + '</strong>';
-                    if (n.short_name) popup += ' <code>' + esc(n.short_name) + '</code>';
-                    popup += '<br><span style="color:' + color + '">&bull;</span> ' +
-                             (n.online ? 'ONLINE' : 'OFFLINE');
-                    if (n.hardware) popup += ' &middot; ' + esc(n.hardware);
-                    if (n.role) popup += '<br>Role: ' + esc(n.role);
-                    if (n.battery !== null && n.battery !== undefined) {
-                        popup += '<br>Battery: ' + (n.battery > 100 ? 'Plugged in' : n.battery + '%');
-                    }
-                    if (n.uptime) popup += '<br>Uptime: ' + formatUptime(n.uptime);
-                    if (n.last_heard) {
-                        var ago = Math.floor((Date.now() - new Date(n.last_heard).getTime()) / 60000);
-                        popup += '<br>Last heard: ' + (ago < 60 ? ago + 'm ago' : Math.floor(ago/60) + 'h ago');
-                    }
-                    if (n.node_id_hex) popup += '<br><code>' + esc(n.node_id_hex) + '</code>';
-
-                    marker.bindPopup(popup);
+                    marker.bindPopup(nodePopup(n), { maxWidth: 300 });
                     meshLayer.addLayer(marker);
+
+                    // Draw neighbour lines
+                    if (n.neighbours && n.neighbours.length > 0) {
+                        n.neighbours.forEach(function(nb) {
+                            var peer = nodeIndex[nb.node_id];
+                            if (!peer) return;
+                            // Only draw from lower ID to avoid duplicates
+                            if (n.node_id > nb.node_id) return;
+
+                            var snr = nb.snr;
+                            var lineColor = snr > 5 ? '#22c55e' : snr > 0 ? '#eab308' : '#ef4444';
+
+                            var line = L.polyline(
+                                [[n.lat, n.lng], [peer.lat, peer.lng]],
+                                { color: lineColor, weight: 1, opacity: 0.35, dashArray: '4 4' }
+                            );
+                            line.bindPopup(
+                                '<strong>Link</strong><br>' +
+                                esc(n.long_name) + ' &harr; ' + esc(peer.long_name) +
+                                '<br>SNR: ' + (snr !== null && snr !== undefined ? snr.toFixed(1) + ' dB' : '—')
+                            );
+                            pathLayer.addLayer(line);
+                        });
+                    }
                 });
 
                 document.getElementById('stat-nodes').textContent = online + '/' + nodes.length;
@@ -255,6 +355,8 @@
                 console.error('Mesh error:', err);
             }
         }
+
+        // ── Refresh alerts + earthquakes ──
 
         async function refreshAlerts() {
             try {
@@ -308,6 +410,8 @@
             }
         }
 
+        // ── Init ──
+
         async function refresh() {
             await Promise.all([refreshMesh(), refreshAlerts()]);
             document.getElementById('last-update').textContent =
@@ -316,6 +420,7 @@
 
         refresh();
         setInterval(refresh, 30000);
+    })();
     </script>
 </body>
 </html>

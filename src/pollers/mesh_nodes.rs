@@ -77,6 +77,26 @@ pub struct MeshNode {
     pub metadata: serde_json::Value,
 }
 
+fn str_field(raw: &serde_json::Value, key: &str) -> Option<String> {
+    raw.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+fn f64_field(raw: &serde_json::Value, key: &str) -> Option<f64> {
+    raw.get(key).and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|i| i as f64)))
+}
+
+fn i64_field(raw: &serde_json::Value, key: &str) -> Option<i64> {
+    raw.get(key).and_then(|v| {
+        v.as_i64()
+            .or_else(|| v.as_u64().map(|u| u as i64))
+            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+    })
+}
+
+fn bool_field(raw: &serde_json::Value, key: &str) -> Option<bool> {
+    raw.get(key).and_then(|v| v.as_bool())
+}
+
 async fn fetch_nodes(client: &reqwest::Client) -> Result<Vec<MeshNode>, AppError> {
     let response = client
         .get(FLMESH_API_URL)
@@ -132,15 +152,10 @@ async fn fetch_nodes(client: &reqwest::Client) -> Result<Vec<MeshNode>, AppError
             v.as_f64().or_else(|| v.as_i64().map(|i| i as f64))
         }).map(|v| if v.abs() > 1000.0 { v / 1e7 } else { v });
 
-        let altitude = raw
-            .get("altitude")
-            .and_then(|v| v.as_f64().or_else(|| v.as_i64().map(|i| i as f64)));
+        let altitude = f64_field(raw, "altitude");
 
         // Determine online status from updated_at timestamp
-        let updated_at = raw
-            .get("updated_at")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+        let updated_at = str_field(raw, "updated_at");
 
         let is_online = updated_at
             .as_deref()
@@ -148,37 +163,56 @@ async fn fetch_nodes(client: &reqwest::Client) -> Result<Vec<MeshNode>, AppError
             .map(|dt| (now - dt.with_timezone(&chrono::Utc)).num_seconds() < OFFLINE_THRESHOLD_SECS)
             .unwrap_or(false);
 
-        let uptime_str = raw.get("uptime_seconds").and_then(|v| v.as_str());
-        let uptime = raw
-            .get("uptime_seconds")
-            .and_then(|v| v.as_i64().or_else(|| uptime_str.and_then(|s| s.parse().ok())));
-
+        let uptime = i64_field(raw, "uptime_seconds");
         let battery = raw.get("battery_level").and_then(|v| v.as_i64());
 
+        // Neighbours: array of {node_id, snr}
+        let neighbours = raw.get("neighbours")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter().map(|n| {
+                    serde_json::json!({
+                        "node_id": n.get("node_id").and_then(|v|
+                            v.as_str().map(|s| s.to_string())
+                            .or_else(|| v.as_i64().map(|i| i.to_string()))
+                            .or_else(|| v.as_u64().map(|u| u.to_string()))
+                        ),
+                        "snr": n.get("snr").and_then(|v| v.as_f64()),
+                    })
+                }).collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
+        // Pack all fields into metadata
         let metadata = serde_json::json!({
-            "region": raw.get("region_name").and_then(|v| v.as_str()),
-            "modem_preset": raw.get("modem_preset_name").and_then(|v| v.as_str()),
-            "channel_utilization": raw.get("channel_utilization").and_then(|v| v.as_str()),
-            "air_util_tx": raw.get("air_util_tx").and_then(|v| v.as_str()),
-            "num_online_local_nodes": raw.get("num_online_local_nodes").and_then(|v| v.as_i64()),
-            "temperature": raw.get("temperature").and_then(|v| v.as_str().or_else(|| None)),
-            "is_licensed": raw.get("is_licensed").and_then(|v| v.as_bool()),
+            "region": str_field(raw, "region_name"),
+            "modem_preset": str_field(raw, "modem_preset_name"),
+            "channel_utilization": str_field(raw, "channel_utilization"),
+            "air_util_tx": str_field(raw, "air_util_tx"),
+            "num_online_local_nodes": i64_field(raw, "num_online_local_nodes"),
+            "temperature": str_field(raw, "temperature"),
+            "relative_humidity": str_field(raw, "relative_humidity"),
+            "barometric_pressure": str_field(raw, "barometric_pressure"),
+            "voltage": str_field(raw, "voltage"),
+            "is_licensed": bool_field(raw, "is_licensed"),
+            "has_default_channel": bool_field(raw, "has_default_channel"),
+            "position_precision": i64_field(raw, "position_precision"),
+            "neighbours": neighbours,
+            "neighbour_broadcast_interval_secs": i64_field(raw, "neighbour_broadcast_interval_secs"),
+            "neighbours_updated_at": str_field(raw, "neighbours_updated_at"),
+            "position_updated_at": str_field(raw, "position_updated_at"),
+            "mqtt_connection_state_updated_at": str_field(raw, "mqtt_connection_state_updated_at"),
+            "created_at": str_field(raw, "created_at"),
         });
 
         nodes.push(MeshNode {
             node_id,
-            node_id_hex: raw.get("node_id_hex").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            node_id_hex: str_field(raw, "node_id_hex"),
             long_name,
-            short_name: raw.get("short_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            hardware_model: raw
-                .get("hardware_model_name")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            role: raw.get("role_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            firmware_version: raw
-                .get("firmware_version")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
+            short_name: str_field(raw, "short_name"),
+            hardware_model: str_field(raw, "hardware_model_name"),
+            role: str_field(raw, "role_name"),
+            firmware_version: str_field(raw, "firmware_version"),
             latitude,
             longitude,
             altitude,
