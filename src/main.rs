@@ -78,6 +78,7 @@ async fn main() -> anyhow::Result<()> {
             "https://flmesh-proposal.pages.dev".parse().expect("valid origin"),
             "https://areyoumeshingwith.us".parse().expect("valid origin"),
             "https://www.areyoumeshingwith.us".parse().expect("valid origin"),
+            "https://skywatch.hsca-capecoral.com".parse().expect("valid origin"),
             "http://localhost:3005".parse().expect("valid origin"),
             "http://localhost:8080".parse().expect("valid origin"),
             "http://127.0.0.1:8080".parse().expect("valid origin"),
