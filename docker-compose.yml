@@ -1,0 +1,11 @@
+services:
+  skywatch:
+    build: .
+    ports:
+      - "3005:3005"
+    volumes:
+      - skywatch-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  skywatch-data:
