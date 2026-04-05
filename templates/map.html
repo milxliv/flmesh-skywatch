@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FL Mesh Map — SkyWatch</title>
+    <link rel="stylesheet" href="/static/leaflet.css">
+    <script src="/static/leaflet.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f1a;
+            --bg-card: #16213e;
+            --border: #2a2a4a;
+            --text: #e0e0e0;
+            --text-muted: #5a6378;
+            --green: #22c55e;
+            --amber: #eab308;
+            --red: #dc2626;
+            --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top bar */
+        .map-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+            height: 40px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            z-index: 1000;
+        }
+        .map-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .map-bar-left a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .map-bar-left a:hover { color: var(--green); }
+        .map-bar-nav {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .map-bar-nav a {
+            padding: 0.3rem 0.7rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .map-bar-nav a:hover {
+            color: var(--text);
+            background: rgba(255,255,255,0.05);
+        }
+        .map-bar-nav a.active {
+            color: var(--green);
+            background: rgba(34,197,94,0.1);
+        }
+        .map-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .live-stat {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .live-stat .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-green { background: var(--green); }
+        .dot-amber { background: var(--amber); }
+        .dot-red { background: var(--red); }
+
+        /* Map fills remaining space */
+        #fullmap {
+            flex: 1;
+            background: var(--bg);
+        }
+
+        /* Dark tiles */
+        .leaflet-tile-pane { filter: brightness(0.7) contrast(1.1) saturate(0.3); }
+        .leaflet-popup-content-wrapper {
+            background: var(--bg-card);
+            color: var(--text);
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .leaflet-popup-content {
+            font-size: 0.8rem;
+            line-height: 1.4;
+            font-family: var(--font-sans);
+        }
+        .leaflet-popup-content code {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            background: rgba(255,255,255,0.05);
+            padding: 0.1em 0.3em;
+            border-radius: 3px;
+        }
+        .leaflet-popup-tip { background: var(--bg-card); }
+        .leaflet-control-layers {
+            background: var(--bg-card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .leaflet-control-layers label { color: var(--text); }
+        .leaflet-control-zoom a {
+            background: var(--bg-card);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .leaflet-control-zoom a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        @media (max-width: 600px) {
+            .map-bar-right .live-stat-label { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-bar">
+        <div class="map-bar-left">
+            <a href="/">⚡ SkyWatch</a>
+            <nav class="map-bar-nav">
+                <a href="/">Dashboard</a>
+                <a href="/map" class="active">Map</a>
+            </nav>
+        </div>
+        <div class="map-bar-right">
+            <span class="live-stat">
+                <span class="dot dot-green"></span>
+                <span id="stat-nodes">—</span>
+                <span class="live-stat-label">nodes</span>
+            </span>
+            <span class="live-stat">
+                <span class="dot dot-amber"></span>
+                <span id="stat-alerts">—</span>
+                <span class="live-stat-label">alerts</span>
+            </span>
+            <span id="last-update"></span>
+        </div>
+    </div>
+
+    <div id="fullmap"></div>
+
+    <script>
+        var map = L.map('fullmap', {
+            center: [27.8, -82.5],
+            zoom: 7,
+            zoomControl: true,
+        });
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        var meshLayer = L.layerGroup().addTo(map);
+        var alertLayer = L.layerGroup().addTo(map);
+        var quakeLayer = L.layerGroup().addTo(map);
+
+        L.control.layers(null, {
+            'Mesh Nodes': meshLayer,
+            'NWS Alerts': alertLayer,
+            'Earthquakes': quakeLayer,
+        }, { collapsed: false }).addTo(map);
+
+        function formatUptime(secs) {
+            if (!secs) return 'unknown';
+            var d = Math.floor(secs / 86400);
+            var h = Math.floor((secs % 86400) / 3600);
+            if (d > 0) return d + 'd ' + h + 'h';
+            var m = Math.floor((secs % 3600) / 60);
+            return h + 'h ' + m + 'm';
+        }
+
+        function esc(s) {
+            if (!s) return '';
+            var d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        async function refreshMesh() {
+            try {
+                var resp = await fetch('/api/mesh-nodes');
+                var nodes = await resp.json();
+                meshLayer.clearLayers();
+                var online = 0;
+
+                nodes.forEach(function(n) {
+                    if (n.online) online++;
+                    var color = n.online ? '#22c55e' : '#6b7280';
+                    var radius = n.online ? 6 : 3;
+
+                    var marker = L.circleMarker([n.lat, n.lng], {
+                        radius: radius,
+                        fillColor: color,
+                        color: '#0f0f1a',
+                        weight: 1,
+                        opacity: 0.9,
+                        fillOpacity: 0.8,
+                    });
+
+                    var popup = '<strong>' + esc(n.long_name) + '</strong>';
+                    if (n.short_name) popup += ' <code>' + esc(n.short_name) + '</code>';
+                    popup += '<br><span style="color:' + color + '">&bull;</span> ' +
+                             (n.online ? 'ONLINE' : 'OFFLINE');
+                    if (n.hardware) popup += ' &middot; ' + esc(n.hardware);
+                    if (n.role) popup += '<br>Role: ' + esc(n.role);
+                    if (n.battery !== null && n.battery !== undefined) {
+                        popup += '<br>Battery: ' + (n.battery > 100 ? 'Plugged in' : n.battery + '%');
+                    }
+                    if (n.uptime) popup += '<br>Uptime: ' + formatUptime(n.uptime);
+                    if (n.last_heard) {
+                        var ago = Math.floor((Date.now() - new Date(n.last_heard).getTime()) / 60000);
+                        popup += '<br>Last heard: ' + (ago < 60 ? ago + 'm ago' : Math.floor(ago/60) + 'h ago');
+                    }
+                    if (n.node_id_hex) popup += '<br><code>' + esc(n.node_id_hex) + '</code>';
+
+                    marker.bindPopup(popup);
+                    meshLayer.addLayer(marker);
+                });
+
+                document.getElementById('stat-nodes').textContent = online + '/' + nodes.length;
+            } catch (err) {
+                console.error('Mesh error:', err);
+            }
+        }
+
+        async function refreshAlerts() {
+            try {
+                var resp = await fetch('/api/map');
+                var events = await resp.json();
+                alertLayer.clearLayers();
+                quakeLayer.clearLayers();
+                var alertCount = 0;
+
+                events.forEach(function(e) {
+                    if (e.source === 'usgs') {
+                        var qm = L.circleMarker([e.lat, e.lng], {
+                            radius: 5,
+                            fillColor: e.color,
+                            color: '#0f0f1a',
+                            weight: 1,
+                            opacity: 0.8,
+                            fillOpacity: 0.6,
+                        });
+                        qm.bindPopup(
+                            '<strong>' + esc(e.title) + '</strong><br>' +
+                            '<em>USGS</em> &middot; ' + (e.severity || '').toUpperCase() +
+                            (e.onset ? '<br>' + e.onset : '')
+                        );
+                        quakeLayer.addLayer(qm);
+                    } else {
+                        alertCount++;
+                        var r = e.severity === 'extreme' ? 9 : e.severity === 'severe' ? 7 : 5;
+                        var am = L.circleMarker([e.lat, e.lng], {
+                            radius: r,
+                            fillColor: e.color,
+                            color: '#0f0f1a',
+                            weight: 1,
+                            opacity: 0.9,
+                            fillOpacity: 0.7,
+                        });
+                        am.bindPopup(
+                            '<strong>' + esc(e.title) + '</strong><br>' +
+                            '<em>' + (e.source || '').toUpperCase() + '</em> &middot; ' +
+                            (e.severity || '').toUpperCase() + '<br>' +
+                            (e.area || '') +
+                            (e.onset ? '<br>Onset: ' + e.onset : '')
+                        );
+                        alertLayer.addLayer(am);
+                    }
+                });
+
+                document.getElementById('stat-alerts').textContent = alertCount.toString();
+            } catch (err) {
+                console.error('Alert error:', err);
+            }
+        }
+
+        async function refresh() {
+            await Promise.all([refreshMesh(), refreshAlerts()]);
+            document.getElementById('last-update').textContent =
+                new Date().toLocaleTimeString();
+        }
+
+        refresh();
+        setInterval(refresh, 30000);
+    </script>
+</body>
+</html>

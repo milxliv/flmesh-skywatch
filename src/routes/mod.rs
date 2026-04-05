@@ -24,6 +24,12 @@ pub async fn index() -> Html<String> {
     Html(template.to_string())
 }
 
+/// Full-page map view
+pub async fn map_page() -> Html<String> {
+    let template = include_str!("../../templates/map.html");
+    Html(template.to_string())
+}
+
 /// HTMX partial: event feed
 pub async fn events_feed(
     State(state): State<Arc<AppState>>,

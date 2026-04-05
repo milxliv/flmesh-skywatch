@@ -89,6 +89,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Dashboard
         .route("/", get(routes::index))
+        .route("/map", get(routes::map_page))
         // HTMX partials
         .route("/api/events", get(routes::events_feed))
         .route("/api/stats", get(routes::stats_panel))
