@@ -25,6 +25,9 @@ pub enum AppError {
 
     #[error("{0}")]
     BadRequest(String),
+
+    #[error("Fetch error: {0}")]
+    Fetch(String),
 }
 
 impl axum::response::IntoResponse for AppError {

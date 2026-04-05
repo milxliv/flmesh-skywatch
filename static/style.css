@@ -182,6 +182,16 @@ body {
 .leaflet-popup-content { font-size: 0.8rem; line-height: 1.4; }
 .leaflet-popup-tip { background: var(--bg-card); }
 
+/* Layer control dark theme */
+.leaflet-control-layers {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.leaflet-control-layers label { color: var(--text-primary); }
+
 /* Event feed */
 .panel-header {
     display: flex;

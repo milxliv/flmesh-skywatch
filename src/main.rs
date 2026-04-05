@@ -57,6 +57,11 @@ async fn main() -> anyhow::Result<()> {
     // Shared state for Axum
     let state = Arc::new(AppState {
         db: Mutex::new(db::init_db(&config.database)?),
+        http: client,
+        mesh_cache: Mutex::new(routes::MeshCache {
+            data: serde_json::Value::Array(vec![]),
+            fetched_at: None,
+        }),
     });
 
     // Routes
@@ -69,6 +74,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/health", get(routes::feed_health))
         // JSON endpoints
         .route("/api/map", get(routes::map_data))
+        .route("/api/mesh-nodes", get(routes::mesh_nodes))
         // Health check
         .route("/api/ping", get(|| async { "ok" }))
         // Static files

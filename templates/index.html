@@ -89,16 +89,23 @@
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Marker layer group for easy clearing
-        let markerLayer = L.layerGroup().addTo(map);
+        // Layer groups
+        let alertLayer = L.layerGroup().addTo(map);
+        let meshLayer = L.layerGroup().addTo(map);
 
-        // Refresh map markers
-        async function refreshMap() {
+        // Layer control
+        L.control.layers(null, {
+            'NWS Alerts': alertLayer,
+            'FL Mesh Nodes': meshLayer,
+        }, { collapsed: false }).addTo(map);
+
+        // Refresh NWS alert markers
+        async function refreshAlerts() {
             try {
                 const resp = await fetch('/api/map');
                 const events = await resp.json();
 
-                markerLayer.clearLayers();
+                alertLayer.clearLayers();
 
                 events.forEach(e => {
                     const marker = L.circleMarker([e.lat, e.lng], {
@@ -116,14 +123,68 @@
                         ${e.area || ''}${e.onset ? '<br>Onset: ' + e.onset : ''}
                     `);
 
-                    markerLayer.addLayer(marker);
+                    alertLayer.addLayer(marker);
                 });
-
-                document.getElementById('last-updated').textContent =
-                    'Map: ' + new Date().toLocaleTimeString();
             } catch (err) {
-                console.error('Map refresh error:', err);
+                console.error('Alert refresh error:', err);
             }
+        }
+
+        // Refresh FL Mesh node markers
+        async function refreshMesh() {
+            try {
+                const resp = await fetch('/api/mesh-nodes');
+                const nodes = await resp.json();
+
+                meshLayer.clearLayers();
+
+                nodes.forEach(n => {
+                    if (n.latitude == null || n.longitude == null) return;
+
+                    const lat = n.latitude / 1e7;
+                    const lng = n.longitude / 1e7;
+                    if (lat === 0 && lng === 0) return;
+
+                    // Age: green if heard <1h, yellow <24h, grey otherwise
+                    const updMs = n.updated_at ? Date.now() - new Date(n.updated_at).getTime() : Infinity;
+                    const color = updMs < 3600000 ? '#22c55e' : updMs < 86400000 ? '#eab308' : '#6b7280';
+
+                    const marker = L.circleMarker([lat, lng], {
+                        radius: 5,
+                        fillColor: color,
+                        color: '#1a1a2e',
+                        weight: 1,
+                        opacity: 0.9,
+                        fillOpacity: 0.8,
+                    });
+
+                    const ago = updMs < 60000 ? '<1m ago'
+                        : updMs < 3600000 ? Math.round(updMs / 60000) + 'm ago'
+                        : updMs < 86400000 ? Math.round(updMs / 3600000) + 'h ago'
+                        : Math.round(updMs / 86400000) + 'd ago';
+
+                    const batt = n.battery_level != null && n.battery_level <= 100
+                        ? `🔋 ${n.battery_level}%` : '';
+
+                    marker.bindPopup(`
+                        <strong>${n.long_name || n.short_name || 'Unknown'}</strong><br>
+                        ${n.hardware_model_name || ''}<br>
+                        ${n.role_name || ''} · ${ago}<br>
+                        ${batt}
+                    `);
+
+                    meshLayer.addLayer(marker);
+                });
+            } catch (err) {
+                console.error('Mesh refresh error:', err);
+            }
+        }
+
+        // Refresh all + update timestamp
+        async function refreshMap() {
+            await Promise.all([refreshAlerts(), refreshMesh()]);
+            document.getElementById('last-updated').textContent =
+                'Map: ' + new Date().toLocaleTimeString();
         }
 
         // Initial load + auto-refresh
