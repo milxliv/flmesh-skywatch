@@ -10,10 +10,12 @@ use axum::{routing::get, Router};
 use clap::Parser;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 
 use crate::config::Config;
 use crate::pollers::nws_alerts::NwsAlertsPoller;
+use crate::pollers::usgs_quakes::UsgsQuakesPoller;
 use crate::pollers::Poller;
 use crate::routes::AppState;
 
@@ -48,21 +50,40 @@ async fn main() -> anyhow::Result<()> {
         _poller_handles.push(handle);
     }
 
-    // Future pollers go here:
-    // if !config.no_usgs { ... }
-    // if !config.no_airnow { ... }
+    if !config.no_usgs {
+        let poller: Arc<dyn Poller> = Arc::new(UsgsQuakesPoller::new());
+        let db_clone = Arc::clone(&db_conn);
+        let client_clone = client.clone();
+        let handle = tokio::spawn(services::run_poller(poller, db_clone, client_clone));
+        _poller_handles.push(handle);
+    }
+
+    if !config.no_mesh {
+        let db_clone = Arc::clone(&db_conn);
+        let client_clone = client.clone();
+        let handle = tokio::spawn(pollers::mesh_nodes::run_mesh_poller(db_clone, client_clone));
+        _poller_handles.push(handle);
+    }
 
     tracing::info!("Started {} pollers", _poller_handles.len());
 
     // Shared state for Axum
     let state = Arc::new(AppState {
         db: Mutex::new(db::init_db(&config.database)?),
-        http: client,
-        mesh_cache: Mutex::new(routes::MeshCache {
-            data: serde_json::Value::Array(vec![]),
-            fetched_at: None,
-        }),
     });
+
+    // CORS: allow known FL Mesh origins and local dev
+    let cors = CorsLayer::new()
+        .allow_origin([
+            "https://flmesh-proposal.pages.dev".parse().expect("valid origin"),
+            "https://areyoumeshingwith.us".parse().expect("valid origin"),
+            "https://www.areyoumeshingwith.us".parse().expect("valid origin"),
+            "http://localhost:3005".parse().expect("valid origin"),
+            "http://localhost:8080".parse().expect("valid origin"),
+            "http://127.0.0.1:8080".parse().expect("valid origin"),
+        ])
+        .allow_methods(Any)
+        .allow_headers(Any);
 
     // Routes
     let app = Router::new()
@@ -79,6 +100,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/ping", get(|| async { "ok" }))
         // Static files
         .nest_service("/static", ServeDir::new("static"))
+        .layer(cors)
         .with_state(state);
 
     let addr = format!("{}:{}", config.address, config.port);

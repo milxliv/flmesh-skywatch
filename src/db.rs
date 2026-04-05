@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 use crate::error::AppError;
 use crate::models::{DashboardStats, Event, FeedHealth, Severity, SourceCount, TypeCount};
+use crate::pollers::mesh_nodes::MeshNode;
 
 pub fn init_db(path: &str) -> Result<Connection, AppError> {
     // Ensure parent directory exists
@@ -24,6 +25,8 @@ pub fn init_db(path: &str) -> Result<Connection, AppError> {
 fn migrate(conn: &Connection) -> Result<(), AppError> {
     let sql = include_str!("../migrations/001_initial.sql");
     conn.execute_batch(sql)?;
+    let sql2 = include_str!("../migrations/002_mesh_nodes.sql");
+    conn.execute_batch(sql2)?;
     Ok(())
 }
 
@@ -286,6 +289,92 @@ pub fn get_map_events(conn: &Connection) -> Result<Vec<serde_json::Value>, AppEr
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(events)
+}
+
+/// Upsert a mesh node
+pub fn upsert_mesh_node(conn: &Connection, node: &MeshNode) -> Result<(), AppError> {
+    conn.execute(
+        "INSERT INTO mesh_nodes (
+            node_id, node_id_hex, long_name, short_name, hardware_model, role,
+            firmware_version, latitude, longitude, altitude,
+            battery_level, uptime_seconds, is_online, last_heard_at, fetched_at, metadata
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+        ON CONFLICT(node_id) DO UPDATE SET
+            node_id_hex = excluded.node_id_hex,
+            long_name = excluded.long_name,
+            short_name = excluded.short_name,
+            hardware_model = excluded.hardware_model,
+            role = excluded.role,
+            firmware_version = excluded.firmware_version,
+            latitude = excluded.latitude,
+            longitude = excluded.longitude,
+            altitude = excluded.altitude,
+            battery_level = excluded.battery_level,
+            uptime_seconds = excluded.uptime_seconds,
+            is_online = excluded.is_online,
+            last_heard_at = excluded.last_heard_at,
+            fetched_at = excluded.fetched_at,
+            metadata = excluded.metadata",
+        params![
+            node.node_id,
+            node.node_id_hex,
+            node.long_name,
+            node.short_name,
+            node.hardware_model,
+            node.role,
+            node.firmware_version,
+            node.latitude,
+            node.longitude,
+            node.altitude,
+            node.battery_level,
+            node.uptime_seconds,
+            node.is_online as i32,
+            node.last_heard_at,
+            node.fetched_at,
+            node.metadata.to_string(),
+        ],
+    )?;
+    Ok(())
+}
+
+/// Get mesh nodes with coordinates for map rendering
+pub fn get_mesh_nodes(conn: &Connection) -> Result<Vec<serde_json::Value>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT node_id, node_id_hex, long_name, short_name, hardware_model, role,
+                latitude, longitude, altitude, battery_level, uptime_seconds,
+                is_online, last_heard_at, metadata
+         FROM mesh_nodes
+         WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+         ORDER BY is_online DESC, last_heard_at DESC",
+    )?;
+
+    let nodes = stmt
+        .query_map([], |row| {
+            let is_online: i32 = row.get(11)?;
+            let metadata_str: String = row.get(13)?;
+            let metadata: serde_json::Value =
+                serde_json::from_str(&metadata_str).unwrap_or_default();
+            Ok(serde_json::json!({
+                "node_id": row.get::<_, String>(0)?,
+                "node_id_hex": row.get::<_, Option<String>>(1)?,
+                "long_name": row.get::<_, String>(2)?,
+                "short_name": row.get::<_, Option<String>>(3)?,
+                "hardware": row.get::<_, Option<String>>(4)?,
+                "role": row.get::<_, Option<String>>(5)?,
+                "lat": row.get::<_, f64>(6)?,
+                "lng": row.get::<_, f64>(7)?,
+                "altitude": row.get::<_, Option<f64>>(8)?,
+                "battery": row.get::<_, Option<i64>>(9)?,
+                "uptime": row.get::<_, Option<i64>>(10)?,
+                "online": is_online == 1,
+                "last_heard": row.get::<_, Option<String>>(12)?,
+                "region": metadata.get("region").and_then(|v| v.as_str()),
+                "modem_preset": metadata.get("modem_preset").and_then(|v| v.as_str()),
+            }))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(nodes)
 }
 
 /// Get feed health for all sources

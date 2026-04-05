@@ -13,7 +13,8 @@
     <header class="top-bar">
         <div class="top-bar-left">
             <h1 class="logo">⚡ SkyWatch</h1>
-            <span class="subtitle">Nationwide Situational Awareness</span>
+            <span class="subtitle">FL Mesh Situational Awareness</span>
+            <a href="https://areyoumeshingwith.us" class="back-link" target="_blank" rel="noopener">Florida Mesh &rarr;</a>
         </div>
         <div class="top-bar-right">
             <span class="status-indicator" id="connection-status">● LIVE</span>
@@ -77,21 +78,21 @@
     </main>
 
     <script>
-        // Initialize Leaflet map centered on CONUS
+        // Initialize Leaflet map centered on Florida
         const map = L.map('map', {
-            center: [39.8, -98.5],
-            zoom: 4,
+            center: [27.5, -82.5],
+            zoom: 7,
             zoomControl: true,
         });
 
         L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
-            attribution: '© OpenStreetMap'
+            attribution: '&copy; OpenStreetMap'
         }).addTo(map);
 
-        // Layer groups
-        let alertLayer = L.layerGroup().addTo(map);
-        let meshLayer = L.layerGroup().addTo(map);
+        // Separate layer groups for toggle control
+        const alertLayer = L.layerGroup().addTo(map);
+        const meshLayer = L.layerGroup().addTo(map);
 
         // Layer control
         L.control.layers(null, {
@@ -119,7 +120,7 @@
 
                     marker.bindPopup(`
                         <strong>${e.title}</strong><br>
-                        <em>${e.source.toUpperCase()}</em> · ${e.severity.toUpperCase()}<br>
+                        <em>${e.source.toUpperCase()}</em> &middot; ${e.severity.toUpperCase()}<br>
                         ${e.area || ''}${e.onset ? '<br>Onset: ' + e.onset : ''}
                     `);
 
@@ -130,7 +131,17 @@
             }
         }
 
-        // Refresh FL Mesh node markers
+        // Format uptime from seconds to human-readable
+        function formatUptime(secs) {
+            if (!secs) return 'unknown';
+            const d = Math.floor(secs / 86400);
+            const h = Math.floor((secs % 86400) / 3600);
+            if (d > 0) return d + 'd ' + h + 'h';
+            const m = Math.floor((secs % 3600) / 60);
+            return h + 'h ' + m + 'm';
+        }
+
+        // Refresh mesh node markers
         async function refreshMesh() {
             try {
                 const resp = await fetch('/api/mesh-nodes');
@@ -139,18 +150,11 @@
                 meshLayer.clearLayers();
 
                 nodes.forEach(n => {
-                    if (n.latitude == null || n.longitude == null) return;
+                    const color = n.online ? '#22c55e' : '#6b7280';
+                    const radius = n.online ? 6 : 4;
 
-                    const lat = n.latitude / 1e7;
-                    const lng = n.longitude / 1e7;
-                    if (lat === 0 && lng === 0) return;
-
-                    // Age: green if heard <1h, yellow <24h, grey otherwise
-                    const updMs = n.updated_at ? Date.now() - new Date(n.updated_at).getTime() : Infinity;
-                    const color = updMs < 3600000 ? '#22c55e' : updMs < 86400000 ? '#eab308' : '#6b7280';
-
-                    const marker = L.circleMarker([lat, lng], {
-                        radius: 5,
+                    const marker = L.circleMarker([n.lat, n.lng], {
+                        radius: radius,
                         fillColor: color,
                         color: '#1a1a2e',
                         weight: 1,
@@ -158,21 +162,22 @@
                         fillOpacity: 0.8,
                     });
 
-                    const ago = updMs < 60000 ? '<1m ago'
-                        : updMs < 3600000 ? Math.round(updMs / 60000) + 'm ago'
-                        : updMs < 86400000 ? Math.round(updMs / 3600000) + 'h ago'
-                        : Math.round(updMs / 86400000) + 'd ago';
+                    let popup = `<strong>${n.long_name}</strong>`;
+                    if (n.short_name) popup += ` <code>${n.short_name}</code>`;
+                    popup += `<br><span style="color:${color}">&bull;</span> ${n.online ? 'ONLINE' : 'OFFLINE'}`;
+                    if (n.hardware) popup += ` &middot; ${n.hardware}`;
+                    if (n.role) popup += `<br>Role: ${n.role}`;
+                    if (n.battery !== null && n.battery !== undefined) {
+                        popup += `<br>Battery: ${n.battery > 100 ? 'Plugged in' : n.battery + '%'}`;
+                    }
+                    if (n.uptime) popup += `<br>Uptime: ${formatUptime(n.uptime)}`;
+                    if (n.last_heard) {
+                        const ago = Math.floor((Date.now() - new Date(n.last_heard).getTime()) / 60000);
+                        popup += `<br>Last heard: ${ago < 60 ? ago + 'm ago' : Math.floor(ago/60) + 'h ago'}`;
+                    }
+                    if (n.node_id_hex) popup += `<br><code>${n.node_id_hex}</code>`;
 
-                    const batt = n.battery_level != null && n.battery_level <= 100
-                        ? `🔋 ${n.battery_level}%` : '';
-
-                    marker.bindPopup(`
-                        <strong>${n.long_name || n.short_name || 'Unknown'}</strong><br>
-                        ${n.hardware_model_name || ''}<br>
-                        ${n.role_name || ''} · ${ago}<br>
-                        ${batt}
-                    `);
-
+                    marker.bindPopup(popup);
                     meshLayer.addLayer(marker);
                 });
             } catch (err) {

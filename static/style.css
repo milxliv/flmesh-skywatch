@@ -61,6 +61,18 @@ body {
     letter-spacing: 0.08em;
 }
 
+.back-link {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: var(--color-ok);
+}
+
 .top-bar-right {
     display: flex;
     align-items: center;

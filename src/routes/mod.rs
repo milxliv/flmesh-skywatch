@@ -2,7 +2,6 @@ use axum::extract::{Query, State};
 use axum::response::Html;
 use axum::Json;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::Mutex;
 
 use crate::db;
@@ -10,17 +9,7 @@ use crate::error::AppError;
 
 pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
-    pub http: reqwest::Client,
-    pub mesh_cache: Mutex<MeshCache>,
 }
-
-pub struct MeshCache {
-    pub data: serde_json::Value,
-    pub fetched_at: Option<Instant>,
-}
-
-const MESH_API_URL: &str = "https://map.areyoumeshingwith.us/api/v1/nodes";
-const MESH_CACHE_SECS: u64 = 60;
 
 #[derive(serde::Deserialize, Default)]
 pub struct EventFilters {
@@ -169,6 +158,15 @@ pub async fn map_data(
     Ok(Json(events))
 }
 
+/// JSON endpoint: mesh nodes for Leaflet
+pub async fn mesh_nodes(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<serde_json::Value>>, AppError> {
+    let conn = state.db.lock().await;
+    let nodes = db::get_mesh_nodes(&conn)?;
+    Ok(Json(nodes))
+}
+
 /// JSON endpoint: feed health
 pub async fn feed_health(
     State(state): State<Arc<AppState>>,
@@ -200,38 +198,6 @@ pub async fn feed_health(
     }
 
     Ok(Html(html))
-}
-
-/// JSON proxy: FL Mesh nodes (cached 60s)
-pub async fn mesh_nodes(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<serde_json::Value>, AppError> {
-    {
-        let cache = state.mesh_cache.lock().await;
-        if let Some(t) = cache.fetched_at {
-            if t.elapsed().as_secs() < MESH_CACHE_SECS {
-                return Ok(Json(cache.data.clone()));
-            }
-        }
-    }
-
-    let resp = state
-        .http
-        .get(MESH_API_URL)
-        .send()
-        .await
-        .map_err(|e| AppError::Fetch(format!("mesh nodes: {e}")))?;
-
-    let body: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Fetch(format!("mesh nodes parse: {e}")))?;
-
-    let mut cache = state.mesh_cache.lock().await;
-    cache.data = body.clone();
-    cache.fetched_at = Some(Instant::now());
-
-    Ok(Json(body))
 }
 
 fn html_escape(s: &str) -> String {

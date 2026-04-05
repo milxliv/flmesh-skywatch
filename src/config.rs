@@ -19,6 +19,14 @@ pub struct Config {
     #[arg(long, default_value_t = false)]
     pub no_nws: bool,
 
+    /// Disable FL Mesh node poller
+    #[arg(long, default_value_t = false)]
+    pub no_mesh: bool,
+
+    /// Disable USGS earthquake poller
+    #[arg(long, default_value_t = false)]
+    pub no_usgs: bool,
+
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]
     pub log_level: String,

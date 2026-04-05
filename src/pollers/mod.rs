@@ -1,4 +1,6 @@
+pub mod mesh_nodes;
 pub mod nws_alerts;
+pub mod usgs_quakes;
 
 use crate::error::AppError;
 use crate::models::Event;
